@@ -1,6 +1,6 @@
 {
 	"name": "pin-proxy-for-container",
-	"description": "A Firefox extension that assigns a proxy to each multi-account container",
+	"description": "Assign a separate proxy server to each Firefox Multi-Account Container.",
 	"license": "GPL-3.0-or-later",
 	"private": true,
 	"version": "0.1.0",
@@ -29,4 +29,3 @@
 		"webpack-cli": "^4.10.0"
 	}
 }
-

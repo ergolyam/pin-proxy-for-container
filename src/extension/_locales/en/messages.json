@@ -1,8 +1,0 @@
-{
-	"extensionName": {
-		"message": "Pin Proxy for Container"
-	},
-	"extensionDescription": {
-		"message": "Assign a separate proxy server to each Firefox container"
-	}
-}

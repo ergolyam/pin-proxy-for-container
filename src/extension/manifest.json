@@ -1,10 +1,13 @@
 {
 	"manifest_version": 2,
-	"name": "__MSG_extensionName__",
+	"name": "Pin Proxy for Container",
 	"version": "0.1.0",
-	"description": "__MSG_extensionDescription__",
+	"description": "Assign a separate proxy server to each Firefox Multi-Account Container.",
+	"developer": {
+		"name": "ergolyam",
+		"url": "mailto:grisha765@tuta.io"
+	},
 	"incognito": "not_allowed",
-	"default_locale": "en",
 	"permissions": [
 		"<all_urls>",
 		"contextualIdentities",
@@ -25,7 +28,7 @@
 		"96": "icon.svg"
 	},
 	"browser_action": {
-		"default_title": "__MSG_extensionName__",
+		"default_title": "Pin Proxy for Container",
 		"theme_icons": [
 			{
 				"light": "icon-light.svg",
@@ -50,4 +53,3 @@
 		}
 	}
 }
-
