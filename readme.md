@@ -1,0 +1,15 @@
+# pin-proxy-for-container
+Firefox Multi-Account Containers separates cookies and site data, but does not provide a built-in way to assign a different proxy to each container. This extension allows HTTP, HTTPS, SOCKS4, and SOCKS5 proxies to be assigned to individual containers. Proxy settings are saved automatically and can be temporarily enabled or disabled from the main container list.
+
+## Installation
+
+- Build the extension and load `build/webpack/manifest.json` from `about:debugging#/runtime/this-firefox`.
+
+### Building
+
+- To build and package the extension for distribution, run:
+    ```bash
+    yarn install
+    yarn build
+    ```
+    - This will run the webpack build and place the output in `build/webpack`, after which the extension will be packaged using `web-ext` and the output will be placed in `web-ext-artifacts`.

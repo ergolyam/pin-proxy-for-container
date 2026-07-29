@@ -1,0 +1,53 @@
+{
+	"manifest_version": 2,
+	"name": "__MSG_extensionName__",
+	"version": "0.1.0",
+	"description": "__MSG_extensionDescription__",
+	"incognito": "not_allowed",
+	"default_locale": "en",
+	"permissions": [
+		"<all_urls>",
+		"contextualIdentities",
+		"cookies",
+		"proxy",
+		"storage",
+		"tabs",
+		"webRequest",
+		"webRequestBlocking"
+	],
+	"background": {
+		"scripts": [
+			"background/proxy-manager.js"
+		]
+	},
+	"icons": {
+		"48": "icon.svg",
+		"96": "icon.svg"
+	},
+	"browser_action": {
+		"default_title": "__MSG_extensionName__",
+		"theme_icons": [
+			{
+				"light": "icon-light.svg",
+				"dark": "icon-dark.svg",
+				"size": 16
+			},
+			{
+				"light": "icon-light.svg",
+				"dark": "icon-dark.svg",
+				"size": 32
+			}
+		],
+		"default_popup": "settings/settings.html"
+	},
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "{b6f87ba2-c849-4c76-a1c9-87b8af081f8b}",
+			"strict_min_version": "138.0",
+			"data_collection_permissions": {
+				"required": ["none"]
+			}
+		}
+	}
+}
+
