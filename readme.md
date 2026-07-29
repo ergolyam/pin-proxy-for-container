@@ -3,7 +3,7 @@ Firefox Multi-Account Containers separates cookies and site data, but does not p
 
 ## Installation
 
-- Build the extension and load `build/webpack/manifest.json` from `about:debugging#/runtime/this-firefox`.
+- [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/pin-proxy-for-container)
 
 ### Building
 
