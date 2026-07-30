@@ -58,7 +58,7 @@
 	--toggle-bg-active: #058b00;
 	--badge-bg-color: #e7f4e4;
 	--badge-text-color: #0c6600;
-	--badge-bg-color-off: #e0e0e6;
+	--badge-bg-color-off: var(--button-bg-color-secondary);
 	--badge-text-color-off: #5b5b66;
 	--danger-text-color: #c50042;
 }
