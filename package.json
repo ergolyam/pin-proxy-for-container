@@ -3,11 +3,10 @@
 	"description": "Assign a separate proxy server to each Firefox Multi-Account Container.",
 	"license": "GPL-3.0-or-later",
 	"private": true,
-	"version": "0.1.0",
 	"scripts": {
 		"start": "concurrently \"webpack --watch\" \"yarn web-ext run --source-dir build/webpack\"",
 		"watch:webpack": "webpack --watch",
-		"lint": "yarn web-ext lint --source-dir build/webpack",
+		"lint": "yarn web-ext lint",
 		"build": "yarn webpack && yarn web-ext build",
 		"build:webpack": "yarn webpack",
 		"clean": "yarn clean:webpack && yarn clean:extension",

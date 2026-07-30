@@ -1,7 +1,7 @@
 {
 	"manifest_version": 2,
 	"name": "Pin Proxy for Container",
-	"version": "0.1.0",
+	"version": "0.1.0.1",
 	"description": "Assign a separate proxy server to each Firefox Multi-Account Container.",
 	"developer": {
 		"name": "ergolyam",
