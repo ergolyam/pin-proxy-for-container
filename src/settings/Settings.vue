@@ -92,7 +92,13 @@
 							{{ proxyPreview }}
 						</div>
 					</div>
-					<span v-if="hasSelectedAssignment" class="configured-badge">Configured</span>
+					<span
+						v-if="hasSelectedAssignment"
+						class="proxy-status-badge"
+						:class="{ 'proxy-status-badge--off': !selectedAssignment.enabled }"
+					>
+						{{ selectedAssignment.enabled ? 'Enabled' : 'Disabled' }}
+					</span>
 				</div>
 
 				<div class="form-field">

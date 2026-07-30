@@ -58,6 +58,8 @@
 	--toggle-bg-active: #058b00;
 	--badge-bg-color: #e7f4e4;
 	--badge-text-color: #0c6600;
+	--badge-bg-color-off: #e0e0e6;
+	--badge-text-color-off: #5b5b66;
 	--danger-text-color: #c50042;
 }
 
@@ -114,6 +116,8 @@ body {
 		--toggle-bg-active: #2f8f6d;
 		--badge-bg-color: #164b3a;
 		--badge-text-color: #54ffbd;
+		--badge-bg-color-off: #52525e;
+		--badge-text-color-off: #cfcfd8;
 		--danger-text-color: #ff9aa2;
 	}
 
@@ -432,7 +436,7 @@ hr {
 	max-inline-size: 230px;
 }
 
-.configured-badge {
+.proxy-status-badge {
 	border-radius: 999px;
 	background: var(--badge-bg-color);
 	color: var(--badge-text-color);
@@ -441,6 +445,11 @@ hr {
 	line-height: 20px;
 	padding-inline: var(--space-2);
 	flex: 0 0 auto;
+}
+
+.proxy-status-badge--off {
+	background: var(--badge-bg-color-off);
+	color: var(--badge-text-color-off);
 }
 
 .form-field {
