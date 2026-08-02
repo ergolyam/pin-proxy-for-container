@@ -9,6 +9,7 @@
 		"lint": "yarn web-ext lint",
 		"build": "yarn webpack && yarn web-ext build",
 		"build:webpack": "yarn webpack",
+                "sign": "dotenv -- web-ext sign --channel=listed",
                 "sign:dev": "dotenv -- web-ext sign --channel=unlisted",
 		"clean": "yarn clean:webpack && yarn clean:extension",
 		"clean:webpack": "rm -rf build",
