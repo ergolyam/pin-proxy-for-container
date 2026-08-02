@@ -271,6 +271,25 @@ function blankForm() {
 	}
 }
 
+function blankTouched() {
+	return {
+		host: false,
+		port: false,
+		username: false,
+		password: false,
+	}
+}
+
+function normalizeDraftTouched(touched) {
+	const source = touched && typeof touched === 'object' ? touched : {}
+	return {
+		host: source.host === true,
+		port: source.port === true,
+		username: source.username === true,
+		password: source.password === true,
+	}
+}
+
 function normalizeDraftForm(form) {
 	const source = form && typeof form === 'object' ? form : {}
 	return {
@@ -307,6 +326,7 @@ function normalizeDraft(draft) {
 	return {
 		cookieStoreId: draft.cookieStoreId,
 		form: normalizeDraftForm(draft.form),
+		touched: normalizeDraftTouched(draft.touched),
 	}
 }
 
@@ -443,12 +463,7 @@ export default {
 			selectedCookieStoreId: '',
 			form: blankForm(),
 			draft: null,
-			touched: {
-				host: false,
-				port: false,
-				username: false,
-				password: false,
-			},
+			touched: blankTouched(),
 			saveStatus: 'idle',
 			saveTimer: null,
 			saveRevision: 0,
@@ -723,12 +738,9 @@ export default {
 				? normalizeDraftForm(draft.form)
 				: (proxy ? formFromProxy(proxy) : blankForm())
 
-			this.touched = {
-				host: false,
-				port: false,
-				username: false,
-				password: false,
-			}
+			this.touched = draft
+				? normalizeDraftTouched(draft.touched)
+				: blankTouched()
 			this.lastSavedSignature = proxySignature(proxy)
 			this.saveStatus = draft ? 'draft' : (proxy ? 'saved' : 'idle')
 			this.draftSaveError = ''
@@ -813,6 +825,7 @@ export default {
 			const draft = {
 				cookieStoreId: this.selectedCookieStoreId,
 				form: normalizeDraftForm(this.form),
+				touched: normalizeDraftTouched(this.touched),
 			}
 			this.draft = draft
 			this.draftSaveError = ''
