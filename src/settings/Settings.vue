@@ -203,7 +203,7 @@
 							</div>
 						</div>
 						<span v-if="showAuthenticationError" class="field-error">
-							Enter a login before the password.
+							{{ authenticationErrorMessage }}
 						</span>
 					</div>
 				</transition>
@@ -545,11 +545,23 @@ export default {
 			)
 		},
 		authenticationIsValid() {
-			return !(
-				this.supportsAuthentication &&
-				this.form.password.length > 0 &&
-				this.form.username.length === 0
-			)
+			if (!this.supportsAuthentication) {
+				return true
+			}
+
+			const hasUsername = this.form.username.length > 0
+			const hasPassword = this.form.password.length > 0
+
+			if (this.form.type === 'socks') {
+				return hasUsername === hasPassword
+			}
+
+			return !hasPassword || hasUsername
+		},
+		authenticationErrorMessage() {
+			return this.form.type === 'socks'
+				? 'Enter both a login and password for SOCKS5.'
+				: 'Enter a login before the password.'
 		},
 		canPersistProxy() {
 			return (
