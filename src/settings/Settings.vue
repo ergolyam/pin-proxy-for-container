@@ -93,11 +93,19 @@
 						</div>
 					</div>
 					<span
-						v-if="hasSelectedAssignment"
+						v-if="hasSelectedDraft || hasSelectedAssignment"
 						class="proxy-status-badge"
-						:class="{ 'proxy-status-badge--off': !selectedAssignment.enabled }"
+						:class="{
+							'proxy-status-badge--draft': hasSelectedDraft,
+							'proxy-status-badge--off': (
+								!hasSelectedDraft && !selectedAssignment.enabled
+							),
+						}"
 					>
-						{{ selectedAssignment.enabled ? 'Enabled' : 'Disabled' }}
+						{{ hasSelectedDraft
+							? 'Draft'
+							: (selectedAssignment.enabled ? 'Enabled' : 'Disabled')
+						}}
 					</span>
 				</div>
 
@@ -203,9 +211,12 @@
 				<div v-if="saveStatus === 'error'" class="save-error" role="alert">
 					Could not save the proxy. Try again.
 				</div>
+				<div v-else-if="draftSaveError" class="save-error" role="alert">
+					{{ draftSaveError }}
+				</div>
 
 				<button
-					v-if="hasSelectedAssignment"
+					v-if="hasSelectedAssignment && !hasSelectedDraft"
 					class="button remove-proxy"
 					type="button"
 					:disabled="saveStatus === 'removing'"
@@ -220,6 +231,7 @@
 
 <script>
 const STORAGE_KEY = 'proxifiedContainersKey'
+const DRAFT_STORAGE_KEY = 'proxyDraftKey'
 const SAVE_DELAY_MS = 350
 
 const PROTOCOLS = [
@@ -256,6 +268,45 @@ function blankForm() {
 		port: '',
 		username: '',
 		password: '',
+	}
+}
+
+function normalizeDraftForm(form) {
+	const source = form && typeof form === 'object' ? form : {}
+	return {
+		type: PROTOCOLS.some((protocol) => protocol.value === source.type)
+			? source.type
+			: 'http',
+		host: typeof source.host === 'string' ? source.host : '',
+		port: (
+			typeof source.port === 'string' || typeof source.port === 'number'
+				? String(source.port)
+				: ''
+		),
+		username: typeof source.username === 'string' ? source.username : '',
+		password: typeof source.password === 'string' ? source.password : '',
+	}
+}
+
+function formFromProxy(proxy) {
+	return normalizeDraftForm(proxy)
+}
+
+function normalizeDraft(draft) {
+	if (
+		!draft ||
+		typeof draft !== 'object' ||
+		typeof draft.cookieStoreId !== 'string' ||
+		draft.cookieStoreId.length === 0 ||
+		!draft.form ||
+		typeof draft.form !== 'object'
+	) {
+		return null
+	}
+
+	return {
+		cookieStoreId: draft.cookieStoreId,
+		form: normalizeDraftForm(draft.form),
 	}
 }
 
@@ -344,6 +395,27 @@ function isValidProxyHost(host) {
 	return isValidHostname(host)
 }
 
+function proxySignature(proxy) {
+	if (!proxy) {
+		return ''
+	}
+
+	const form = formFromProxy(proxy)
+	const protocol = PROTOCOLS.find((item) => item.value === form.type) || PROTOCOLS[0]
+	const normalized = {
+		type: form.type,
+		host: normalizeHost(form.host),
+		port: Number(form.port),
+	}
+
+	if (protocol.supportsAuthentication && form.username.length > 0) {
+		normalized.username = form.username
+		normalized.password = form.password
+	}
+
+	return JSON.stringify(normalized)
+}
+
 function replaceAssignment(assignments, cookieStoreId, proxy) {
 	const normalized = normalizeAssignments(assignments)
 	const existing = normalized.find((assignment) => (
@@ -370,6 +442,7 @@ export default {
 			contextualIdentities: [],
 			selectedCookieStoreId: '',
 			form: blankForm(),
+			draft: null,
 			touched: {
 				host: false,
 				port: false,
@@ -380,7 +453,9 @@ export default {
 			saveTimer: null,
 			saveRevision: 0,
 			saveQueue: Promise.resolve(),
+			draftWritePromise: Promise.resolve(),
 			lastSavedSignature: '',
+			draftSaveError: '',
 			loadError: '',
 			toggleError: '',
 			togglePendingCookieStoreIds: [],
@@ -412,8 +487,19 @@ export default {
 				assignment.cookieStoreId === this.selectedCookieStoreId
 			)) || null
 		},
+		selectedDraft() {
+			return (
+				this.draft &&
+				this.draft.cookieStoreId === this.selectedCookieStoreId
+					? this.draft
+					: null
+			)
+		},
 		hasSelectedAssignment() {
 			return Boolean(this.selectedAssignment)
+		},
+		hasSelectedDraft() {
+			return Boolean(this.selectedDraft)
 		},
 		selectedProtocol() {
 			return this.protocols.find((protocol) => (
@@ -503,11 +589,25 @@ export default {
 	async mounted() {
 		try {
 			const [stored, containers] = await Promise.all([
-				browser.storage.local.get({ [STORAGE_KEY]: [] }),
+				browser.storage.local.get({
+					[STORAGE_KEY]: [],
+					[DRAFT_STORAGE_KEY]: null,
+				}),
 				browser.contextualIdentities.query({}),
 			])
 			this.proxies = normalizeAssignments(stored[STORAGE_KEY])
+			this.draft = normalizeDraft(stored[DRAFT_STORAGE_KEY])
 			this.contextualIdentities = containers
+
+			if (this.draft) {
+				if (this.contextualIdentities.some((container) => (
+					container.cookieStoreId === this.draft.cookieStoreId
+				))) {
+					this.openContainer(this.draft.cookieStoreId)
+				} else {
+					this.discardDraft(this.draft.cookieStoreId)
+				}
+			}
 		} catch (error) {
 			console.debug('Failed to load proxy settings:', error)
 			this.loadError = 'Could not load Firefox containers.'
@@ -522,7 +622,6 @@ export default {
 		if (this.saveTimer) {
 			clearTimeout(this.saveTimer)
 			this.saveTimer = null
-			this.saveImmediately()
 		}
 	},
 	unmounted() {
@@ -608,23 +707,21 @@ export default {
 			}
 		},
 		openContainer(cookieStoreId) {
+			this.saveRevision += 1
 			this.selectedCookieStoreId = cookieStoreId
 			const assignment = this.proxies.find((item) => (
 				item.cookieStoreId === cookieStoreId
 			))
 			const proxy = assignment && assignment.proxy
+			const draft = (
+				this.draft && this.draft.cookieStoreId === cookieStoreId
+					? this.draft
+					: null
+			)
 
-			this.form = proxy
-				? {
-					type: PROTOCOLS.some((protocol) => protocol.value === proxy.type)
-						? proxy.type
-						: 'http',
-					host: typeof proxy.host === 'string' ? proxy.host : '',
-					port: proxy.port ? String(proxy.port) : '',
-					username: typeof proxy.username === 'string' ? proxy.username : '',
-					password: typeof proxy.password === 'string' ? proxy.password : '',
-				}
-				: blankForm()
+			this.form = draft
+				? normalizeDraftForm(draft.form)
+				: (proxy ? formFromProxy(proxy) : blankForm())
 
 			this.touched = {
 				host: false,
@@ -632,17 +729,25 @@ export default {
 				username: false,
 				password: false,
 			}
-			this.lastSavedSignature = proxy ? JSON.stringify(this.normalizedProxy) : ''
-			this.saveStatus = proxy ? 'saved' : 'idle'
+			this.lastSavedSignature = proxySignature(proxy)
+			this.saveStatus = draft ? 'draft' : (proxy ? 'saved' : 'idle')
+			this.draftSaveError = ''
 			this.view = 'proxy'
 		},
 		backToContainers() {
-			this.saveImmediately()
+			if (this.saveTimer) {
+				clearTimeout(this.saveTimer)
+				this.saveTimer = null
+			}
+
+			this.saveRevision += 1
+			this.discardDraft(this.selectedCookieStoreId)
 			this.view = 'containers'
 			this.selectedCookieStoreId = ''
 			this.form = blankForm()
 			this.lastSavedSignature = ''
 			this.saveStatus = 'idle'
+			this.draftSaveError = ''
 		},
 		onProtocolChanged() {
 			if (!this.supportsAuthentication) {
@@ -661,20 +766,29 @@ export default {
 				this.saveTimer = null
 			}
 
-			if (!this.canPersistProxy) {
-				this.saveStatus = 'incomplete'
+			const revision = ++this.saveRevision
+
+			if (
+				this.hasSelectedAssignment &&
+				this.canPersistProxy &&
+				this.currentSignature === this.lastSavedSignature
+			) {
+				this.discardDraft(this.selectedCookieStoreId)
+				this.saveStatus = 'saved'
 				return
 			}
 
-			if (this.currentSignature === this.lastSavedSignature) {
-				this.saveStatus = 'saved'
+			this.persistDraft(revision)
+
+			if (!this.canPersistProxy) {
+				this.saveStatus = 'incomplete'
 				return
 			}
 
 			this.saveStatus = 'pending'
 			this.saveTimer = setTimeout(() => {
 				this.saveTimer = null
-				this.persistProxy()
+				this.persistProxy(revision)
 			}, SAVE_DELAY_MS)
 		},
 		saveImmediately() {
@@ -684,51 +798,129 @@ export default {
 			}
 
 			if (
+				this.hasSelectedDraft &&
 				this.canPersistProxy &&
 				this.currentSignature !== this.lastSavedSignature
 			) {
-				this.persistProxy()
+				this.persistProxy(this.saveRevision)
 			}
 		},
-		async persistProxy() {
-			if (!this.canPersistProxy) {
+		persistDraft(revision) {
+			if (!this.selectedCookieStoreId) {
+				return
+			}
+
+			const draft = {
+				cookieStoreId: this.selectedCookieStoreId,
+				form: normalizeDraftForm(this.form),
+			}
+			this.draft = draft
+			this.draftSaveError = ''
+
+			const write = browser.storage.local.set({
+				[DRAFT_STORAGE_KEY]: draft,
+			}).catch((error) => {
+				console.debug('Failed to save the container proxy draft:', error)
+				if (
+					revision === this.saveRevision &&
+					draft.cookieStoreId === this.selectedCookieStoreId
+				) {
+					this.draftSaveError = 'Could not save the draft. Try again.'
+				}
+			})
+
+			this.draftWritePromise = Promise.all([
+				this.draftWritePromise,
+				write,
+			]).then(() => {})
+		},
+		discardDraft(cookieStoreId) {
+			if (!cookieStoreId) {
+				return
+			}
+
+			if (this.draft && this.draft.cookieStoreId === cookieStoreId) {
+				this.draft = null
+			}
+
+			const removal = browser.storage.local.remove(DRAFT_STORAGE_KEY)
+				.catch((error) => {
+					console.debug('Failed to remove the container proxy draft:', error)
+				})
+
+			this.draftWritePromise = Promise.all([
+				this.draftWritePromise,
+				removal,
+			]).then(() => {})
+		},
+		async persistProxy(revision = this.saveRevision) {
+			if (
+				!this.hasSelectedDraft ||
+				!this.canPersistProxy ||
+				revision !== this.saveRevision
+			) {
 				return
 			}
 
 			const cookieStoreId = this.selectedCookieStoreId
 			const proxy = { ...this.normalizedProxy }
 			const signature = JSON.stringify(proxy)
-			const revision = ++this.saveRevision
+			const pendingDraftWrites = this.draftWritePromise
 			this.saveStatus = 'saving'
 
 			const operation = this.saveQueue
 				.catch(() => {})
 				.then(async () => {
+					await pendingDraftWrites
 					const stored = await browser.storage.local.get({ [STORAGE_KEY]: [] })
+					const assignments = normalizeAssignments(stored[STORAGE_KEY])
+					if (
+						revision !== this.saveRevision ||
+						cookieStoreId !== this.selectedCookieStoreId ||
+						signature !== this.currentSignature ||
+						!this.hasSelectedDraft
+					) {
+						return { updated: assignments, committed: false }
+					}
+
 					const updated = replaceAssignment(
-						stored[STORAGE_KEY],
+						assignments,
 						cookieStoreId,
 						proxy,
 					)
 					await browser.storage.local.set({
 						[STORAGE_KEY]: updated,
 					})
-					return updated
+
+					if (
+						revision !== this.saveRevision ||
+						cookieStoreId !== this.selectedCookieStoreId ||
+						signature !== this.currentSignature
+					) {
+						return { updated, committed: false }
+					}
+
+					await browser.storage.local.remove(DRAFT_STORAGE_KEY)
+					return { updated, committed: true }
 				})
 
 			this.saveQueue = operation
 
 			try {
-				const updated = await operation
+				const result = await operation
+				const { updated, committed } = result
 				this.proxies = updated
 
 				if (
+					committed &&
 					revision === this.saveRevision &&
 					cookieStoreId === this.selectedCookieStoreId &&
 					signature === this.currentSignature
 				) {
+					this.draft = null
 					this.lastSavedSignature = signature
 					this.saveStatus = 'saved'
+					this.draftSaveError = ''
 				}
 			} catch (error) {
 				console.debug('Failed to save the container proxy:', error)
@@ -738,7 +930,7 @@ export default {
 			}
 		},
 		async removeProxy() {
-			if (!this.selectedCookieStoreId) {
+			if (!this.selectedCookieStoreId || this.hasSelectedDraft) {
 				return
 			}
 
@@ -793,8 +985,16 @@ export default {
 			}
 		},
 		syncStorage(changes, areaName) {
-			if (areaName === 'local' && changes[STORAGE_KEY]) {
+			if (areaName !== 'local') {
+				return
+			}
+
+			if (changes[STORAGE_KEY]) {
 				this.proxies = normalizeAssignments(changes[STORAGE_KEY].newValue)
+			}
+
+			if (changes[DRAFT_STORAGE_KEY]) {
+				this.draft = normalizeDraft(changes[DRAFT_STORAGE_KEY].newValue)
 			}
 		},
 		async refreshContainers() {
@@ -806,9 +1006,17 @@ export default {
 						container.cookieStoreId === this.selectedCookieStoreId
 					))
 				) {
+					if (this.saveTimer) {
+						clearTimeout(this.saveTimer)
+						this.saveTimer = null
+					}
+					this.saveRevision += 1
+					this.discardDraft(this.selectedCookieStoreId)
 					this.view = 'containers'
 					this.selectedCookieStoreId = ''
 					this.form = blankForm()
+					this.lastSavedSignature = ''
+					this.saveStatus = 'idle'
 				}
 			} catch (error) {
 				console.debug('Failed to refresh Firefox containers:', error)

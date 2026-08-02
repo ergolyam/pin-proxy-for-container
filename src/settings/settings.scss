@@ -60,6 +60,8 @@
 	--badge-text-color: #0c6600;
 	--badge-bg-color-off: var(--button-bg-color-secondary);
 	--badge-text-color-off: #5b5b66;
+	--badge-bg-color-draft: #fff4cc;
+	--badge-text-color-draft: #7a4b00;
 	--danger-text-color: #c50042;
 }
 
@@ -118,6 +120,8 @@ body {
 		--badge-text-color: #54ffbd;
 		--badge-bg-color-off: #52525e;
 		--badge-text-color-off: #cfcfd8;
+		--badge-bg-color-draft: #5c4300;
+		--badge-text-color-draft: #ffd567;
 		--danger-text-color: #ff9aa2;
 	}
 
@@ -450,6 +454,11 @@ hr {
 .proxy-status-badge--off {
 	background: var(--badge-bg-color-off);
 	color: var(--badge-text-color-off);
+}
+
+.proxy-status-badge--draft {
+	background: var(--badge-bg-color-draft);
+	color: var(--badge-text-color-draft);
 }
 
 .form-field {
